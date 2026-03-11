@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <!-- Mobile-only viewport: fixed 390px max, no zoom -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nema Trader</title>
+
+    <!-- ===== PWA META TAGS ===== -->
+    <!-- Android / Chrome -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a3c28">
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Nema Trader">
+    <!-- General -->
+    <meta name="application-name" content="Nema Trader">
+    <meta name="description" content="Business Management System - Invoices, Stock, Customers">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- ===== ICONS ===== -->
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png">
+
+    <!-- ===== PWA MANIFEST ===== -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- ===== STYLESHEETS ===== -->
+    <link rel="stylesheet" href="swapnil.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <!-- ===== SCRIPTS ===== -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- ===== MOBILE-ONLY STYLE LOCK ===== -->
+    <style>
+      /* Lock layout to mobile — prevent desktop expansion */
+      html, body {
+        max-width: 480px;
+        margin: 0 auto;
+        overflow-x: hidden;
+        /* iOS safe area support */
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      /* Disable desktop sidebar permanently */
+      @media (min-width: 1024px) {
+        .sidebar { transform: translateX(-100%) !important; }
+        .main-content { margin-left: 0 !important; width: 100% !important; }
+      }
+      /* Bottom navigation bar for mobile app feel */
+      .mobile-bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100%;
+        max-width: 480px;
+        background: linear-gradient(160deg, #1a3c28 0%, #2d6a4f 100%);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+        z-index: 600;
+        box-shadow: 0 -2px 15px rgba(0,0,0,0.25);
+        border-top: 1px solid rgba(255,255,255,0.1);
+      }
+      .mobile-bottom-nav a {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        color: rgba(255,255,255,0.6);
+        text-decoration: none;
+        font-size: 0.62rem;
+        padding: 4px 8px;
+        border-radius: 8px;
+        transition: color 0.2s, background 0.2s;
+        min-width: 48px;
+        text-align: center;
+      }
+      .mobile-bottom-nav a i { font-size: 1.1rem; }
+      .mobile-bottom-nav a.active,
+      .mobile-bottom-nav a:hover {
+        color: #7dffb3;
+        background: rgba(255,255,255,0.1);
+      }
+      /* Offset main content so bottom nav doesn't cover it */
+      .main-content { padding-bottom: 70px; }
+      /* Install banner */
+      #pwa-install-banner {
+        display: none;
+        position: fixed;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 24px);
+        max-width: 456px;
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 6px 30px rgba(0,0,0,0.22);
+        padding: 14px 16px;
+        z-index: 700;
+        align-items: center;
+        gap: 12px;
+        border-left: 4px solid #2d6a4f;
+      }
+      #pwa-install-banner.show { display: flex; }
+      #pwa-install-banner img { width: 44px; height: 44px; border-radius: 10px; flex-shrink: 0; }
+      #pwa-install-banner .banner-text { flex: 1; }
+      #pwa-install-banner .banner-text strong { display: block; font-size: 0.9rem; color: #1a3c28; }
+      #pwa-install-banner .banner-text span { font-size: 0.78rem; color: #7f8c8d; }
+      #pwa-install-banner .banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
+      #pwa-install-btn {
+        background: #2d6a4f; color: #fff; border: none;
+        padding: 8px 14px; border-radius: 8px; font-size: 0.82rem;
+        font-weight: 600; cursor: pointer; white-space: nowrap;
+      }
+      #pwa-dismiss-btn {
+        background: #f1f1f1; color: #555; border: none;
+        padding: 8px 10px; border-radius: 8px; font-size: 0.82rem;
+        cursor: pointer;
+      }
+      /* Offline indicator */
+      #offline-indicator {
+        display: none;
+        position: fixed;
+        top: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #e74c3c;
+        color: #fff;
+        padding: 6px 16px;
+        border-radius: 0 0 10px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        z-index: 599;
+        gap: 6px;
+        align-items: center;
+      }
+      #offline-indicator.show { display: flex; }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-receipt"></i> Nema Trader</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="#" class="nav-link active" data-page="dashboard"><i class="fas fa-chart-line"></i>Dashboard</a>
+                </li>
+                <li><a href="#" class="nav-link" data-page="invoices"><i class="fas fa-file-invoice"></i> Invoices</a>
+                </li>
+                <li><a href="#" class="nav-link" data-page="quotations"><i class="fas fa-quote-left"></i> Quotations</a>
+                </li>
+                <li><a href="#" class="nav-link" data-page="customers"><i class="fas fa-users"></i> Customers</a></li>
+                <li><a href="#" class="nav-link" data-page="stock"><i class="fas fa-boxes"></i> Stock Management</a>
+                </li>
+                <li><a href="#" class="nav-link" data-page="reports"><i class="fas fa-chart-bar"></i> Reports</a></li>
+                <li><a href="#" class="nav-link" data-page="settings"><i class="fas fa-cog"></i> Settings</a></li>
+            </ul>
+            </nav>
+
+        <main class="main-content">
+            <header class="header">
+                <button class="sidebar-toggle" id="sidebar-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 id="page-title">Dashboard</h1>
+                <div class="header-actions">
+                    <button class="btn btn-success" onclick="app.showInvoiceModal()">
+                        <i class="fas fa-plus"></i> New Invoice
+                    </button>
+                </div>
+            </header>
+
+            <div id="dashboard" class="page active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-rupee-sign"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="total-revenue">₹0</h3>
+                            <p>Total Revenue</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-file-invoice"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="total-invoices">0</h3>
+                            <p>Total Invoices</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="total-customers">0</h3>
+                            <p>Total Customers</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3 id="pending-amount">₹0</h3>
+                            <p>Pending Amount</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <h3>Recent Invoices</h3>
+                        <div class="table-container">
+                            <table id="recent-invoices-table">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice #</th>
+                                        <th>Customer</th>
+                                        <th>Amount</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="6" class="no-data">No invoices found</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>Low Stock Alert</h3>
+                        <div class="table-container">
+                            <table id="low-stock-table">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Current Stock</th>
+                                        <th>Min Stock</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="4" class="no-data">All products are in stock</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-card">
+                        <h3>Quick Actions</h3>
+                        <div class="quick-actions">
+                            <button class="action-card" onclick="app.showInvoiceModal()">
+                                <i class="fas fa-file-invoice"></i>
+                                <span>New Invoice</span>
+                            </button>
+                            <button class="action-card" onclick="app.showQuotationModal()">
+                                <i class="fas fa-quote-left"></i>
+                                <span>New Quotation</span>
+                            </button>
+                            <button class="action-card" onclick="app.showCustomerModal()">
+                                <i class="fas fa-user-plus"></i>
+                                <span>Add Customer</span>
+                            </button>
+                            <button class="action-card" onclick="app.showProductModal()">
+                                <i class="fas fa-box"></i>
+                                <span>Add Product</span>
+                            </button>
+                            <button class="action-card" onclick="app.showCustomerSelectionForStatement()">
+                                <i class="fas fa-list-alt"></i>
+                                <span>View Statement</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="invoices" class="page">
+                <div class="page-header">
+                    <div class="page-actions">
+                        <button class="btn btn-primary" onclick="app.showInvoiceModal()">
+                            <i class="fas fa-plus"></i> New Invoice
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="invoice-search" placeholder="Search invoices..." class="search-input">
+                    <select id="invoice-status-filter" class="filter-select">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="overdue">Overdue</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table id="invoices-table">
+                        <thead>
+                            <tr>
+                                <th>Invoice #</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Due Date</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="quotations" class="page">
+                <div class="page-header">
+                    <div class="page-actions">
+                        <button class="btn btn-primary" onclick="app.showQuotationModal()">
+                            <i class="fas fa-plus"></i> New Quotation
+                        </button>
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table id="quotations-table">
+                        <thead>
+                            <tr>
+                                <th>Quote #</th>
+                                <th>Customer</th>
+                                <th>Date</th>
+                                <th>Valid Until</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="customers" class="page">
+                <div class="page-header">
+                    <div class="page-actions">
+                        <button class="btn btn-primary" onclick="app.showCustomerModal()">
+                            <i class="fas fa-plus"></i> Add Customer
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="customer-search" placeholder="Search customers..." class="search-input">
+                </div>
+                <div class="table-container">
+                    <table id="customers-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Total Orders</th>
+                                <th>Total Amount</th>
+                                <th>बकाया उधार (Credit)</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="stock" class="page">
+                <div class="page-header">
+                    <div class="page-actions">
+                        <button class="btn btn-primary" onclick="app.showProductModal()">
+                            <i class="fas fa-plus"></i> Add Product
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="product-search" placeholder="Search products..." class="search-input">
+                    <select id="product-category-filter" class="filter-select">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table id="products-table">
+                        <thead>
+                            <tr>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>SKU</th>
+                                <th>Current Stock</th>
+                                <th>Min Stock</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="reports" class="page">
+                <div class="reports-grid">
+                    <div class="report-card">
+                        <h3>Sales Summary</h3>
+                        <div class="report-stats">
+                            <div class="report-item">
+                                <span class="label">Total Sales:</span>
+                                <span class="value" id="report-total-sales">₹0</span>
+                            </div>
+                            <div class="report-item">
+                                <span class="label">Total Invoices:</span>
+                                <span class="value" id="report-total-invoices">0</span>
+                            </div>
+                            <div class="report-item">
+                                <span class="label">Average Order:</span>
+                                <span class="value" id="report-average-order">₹0</span>
+                            </div>
+                            <div class="report-item">
+                                <span class="label">Paid Invoices:</span>
+                                <span class="value" id="report-paid-invoices">0</span>
+                            </div>
+                            <div class="report-item">
+                                <span class="label">Pending Invoices:</span>
+                                <span class="value" id="report-pending-invoices">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="report-card">
+                        <h3>Customer Summary</h3>
+                        <div class="report-stats">
+                            <div class="report-item">
+                                <span class="label">Total Customers:</span>
+                                <span class="value" id="report-total-customers">0</span>
+                            </div>
+                            <div class="report-item">
+                                <span class="label">Active Customers:</span>
+                                <span class="value" id="report-active-customers">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="report-card" style="margin-top: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <h3>Customer Statement Summary</h3>
+                            <button class="btn btn-sm btn-secondary" onclick="app.printStatementSummary()">
+                                <i class="fas fa-print"></i> Print Summary
+                            </button>
+                        </div>
+                        <div class="table-container scrollable-table" id="statement-summary-container">
+                            <table id="statement-summary-table">
+                                <thead>
+                                    <tr>
+                                        <th>Customer Name</th>
+                                        <th>Total Sales (Debit)</th>
+                                        <th>Total Received (Credit)</th>
+                                        <th>Outstanding Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="settings" class="page">
+                <div class="settings-container">
+                    <form id="settings-form" class="settings-form">
+                        <div class="form-section">
+                            <h3>Business Information</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="businessName">Business Name</label>
+                                    <input type="text" id="businessName" name="businessName" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="businessPhone">Phone Number</label>
+                                    <input type="tel" id="businessPhone" name="businessPhone">
+                                </div>
+                                <div class="form-group">
+                                    <label for="businessEmail">Email Address</label>
+                                    <input type="email" id="businessEmail" name="businessEmail">
+                                </div>
+                                <div class="form-group">
+                                    <label for="businessGst">GST Number</label>
+                                    <input type="text" id="businessGst" name="businessGst">
+                                </div>
+                                <div class="form-group full-width">
+                                    <label for="businessAddress">Business Address</label>
+                                    <textarea id="businessAddress" name="businessAddress" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Invoice Settings</h3>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="invoicePrefix">Invoice Prefix</label>
+                                    <input type="text" id="invoicePrefix" name="invoicePrefix" value="INV">
+                                </div>
+                                <div class="form-group">
+                                    <label for="quotationPrefix">Quotation Prefix</label>
+                                    <input type="text" id="quotationPrefix" name="quotationPrefix" value="QUO">
+                                </div>
+                                <div class="form-group">
+                                    <label for="defaultTax">Default Tax (%)</label>
+                                    <input type="number" id="defaultTax" name="defaultTax" value="18" min="0" max="100">
+                                </div>
+                                <div class="form-group">
+                                    <label for="paymentTerms">Payment Terms (Days)</label>
+                                    <input type="number" id="paymentTerms" name="paymentTerms" value="30" min="1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </form>
+
+                    <div class="settings-section">
+                        <h3>Data Management</h3>
+                        <div class="data-actions">
+                            <button class="btn btn-success" id="export-data">
+                                <i class="fas fa-download"></i> Export Data
+                            </button>
+                            <label for="import-data" class="btn btn-info">
+                                <i class="fas fa-upload"></i> Import Data
+                                <input type="file" id="import-data" accept=".json" style="display: none;">
+                            </label>
+                            <button class="btn btn-danger" id="reset-data">
+                                <i class="fas fa-trash"></i> Reset All Data
+                            </button>
+                        </div>
+                    </div>
+                    <div class="settings-section" style="margin-top: 30px;">
+                        <h3>Reset Protection</h3>
+                        <p style="font-size: 0.9rem; color: #7f8c8d; margin-bottom: 20px;">
+                            Set a password to prevent accidental data reset. If a password is set, it will be
+                            required to reset all data.
+                        </p>
+                        <div id="password-status" style="margin-bottom: 15px; font-weight: bold;">
+                        </div>
+                        <form onsubmit="event.preventDefault();">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="reset-password">New Password</label>
+                                    <input type="password" id="reset-password" placeholder="Enter a new password">
+                                </div>
+                                <div class="form-group">
+                                    <label>&nbsp;</label>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <button type="button" class="btn btn-primary" onclick="app.saveResetPassword()">
+                                            <i class="fas fa-save"></i> Set / Update Password
+                                        </button>
+                                        <button type="button" class="btn btn-danger"
+                                            onclick="app.removeResetPassword()">
+                                            <i class="fas fa-trash"></i> Remove Password
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ===== BILL PREVIEW PANEL ===== -->
+    <div id="bill-preview-panel" style="display:none;">
+        <div id="bill-preview-bar">
+            <span id="bill-preview-title">Invoice Preview</span>
+            <button id="bill-preview-back-btn" onclick="app.closeBillPreview()">
+                <i class="fas fa-arrow-left"></i> Back
+            </button>
+            <button id="bill-preview-download-btn">
+                <i class="fas fa-download"></i> Download PDF
+            </button>
+            <button id="bill-preview-share-btn">
+                <i class="fas fa-share-alt"></i> Share
+            </button>
+        </div>
+        <div id="bill-preview-scroll-wrapper">
+            <div id="bill-preview-content"></div>
+        </div>
+    </div>
+    <!-- ===== END BILL PREVIEW PANEL ===== -->
+
+    <div id="modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal Title</h3>
+                <button class="modal-close" onclick="app.closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" id="modal-body">
+            </div>
+            <div class="modal-footer" id="modal-footer">
+            </div>
+        </div>
+    </div>
+
+    <div id="notifications" class="notifications"></div>
+
+    <!-- ===== OFFLINE INDICATOR ===== -->
+    <div id="offline-indicator">
+        <i class="fas fa-wifi"></i> You are offline — app works normally, data is saved locally
+    </div>
+
+    <!-- ===== MOBILE BOTTOM NAVIGATION ===== -->
+    <nav class="mobile-bottom-nav" id="bottom-nav">
+        <a href="#" class="nav-bottom-link active" data-page="dashboard">
+            <i class="fas fa-home"></i>
+            <span>Home</span>
+        </a>
+        <a href="#" class="nav-bottom-link" data-page="invoices">
+            <i class="fas fa-file-invoice"></i>
+            <span>Invoices</span>
+        </a>
+        <a href="#" class="nav-bottom-link" data-page="customers">
+            <i class="fas fa-users"></i>
+            <span>Customers</span>
+        </a>
+        <a href="#" class="nav-bottom-link" data-page="stock">
+            <i class="fas fa-boxes"></i>
+            <span>Stock</span>
+        </a>
+        <a href="#" class="nav-bottom-link" data-page="settings">
+            <i class="fas fa-cog"></i>
+            <span>Settings</span>
+        </a>
+    </nav>
+
+    <!-- ===== PWA INSTALL BANNER ===== -->
+    <div id="pwa-install-banner">
+        <img src="icon-192.png" alt="Nema Trader">
+        <div class="banner-text">
+            <strong>Install Nema Trader</strong>
+            <span>Add to home screen for offline use</span>
+        </div>
+        <div class="banner-actions">
+            <button id="pwa-install-btn"><i class="fas fa-download"></i> Install</button>
+            <button id="pwa-dismiss-btn"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
+    <script src="swapnil.js"></script>
+
+    <!-- ===== PWA / SERVICE WORKER REGISTRATION ===== -->
+    <script>
+    // ---- Service Worker ----
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => {
+                    console.log('[App] Service Worker registered:', reg.scope);
+                    // Notify user of updates
+                    reg.addEventListener('updatefound', () => {
+                        const newWorker = reg.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                console.log('[App] New content available — reload to update');
+                            }
+                        });
+                    });
+                })
+                .catch(err => console.warn('[App] SW registration failed:', err));
+        });
+    }
+
+    // ---- Offline / Online detection ----
+    const offlineBar = document.getElementById('offline-indicator');
+    function updateOnlineStatus() {
+        if (!navigator.onLine) {
+            offlineBar.classList.add('show');
+        } else {
+            offlineBar.classList.remove('show');
+        }
+    }
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    updateOnlineStatus(); // check on load
+
+    // ---- PWA Install prompt ----
+    let deferredPrompt = null;
+    const installBanner = document.getElementById('pwa-install-banner');
+    const installBtn    = document.getElementById('pwa-install-btn');
+    const dismissBtn    = document.getElementById('pwa-dismiss-btn');
+
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Only show if not already installed and user hasn't dismissed
+        if (!localStorage.getItem('pwa-dismissed')) {
+            installBanner.classList.add('show');
+        }
+    });
+
+    installBtn && installBtn.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        installBanner.classList.remove('show');
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log('[App] Install outcome:', outcome);
+        deferredPrompt = null;
+    });
+
+    dismissBtn && dismissBtn.addEventListener('click', () => {
+        installBanner.classList.remove('show');
+        localStorage.setItem('pwa-dismissed', '1');
+    });
+
+    window.addEventListener('appinstalled', () => {
+        installBanner.classList.remove('show');
+        deferredPrompt = null;
+        console.log('[App] PWA installed!');
+    });
+
+    // ---- Bottom nav sync with sidebar nav ----
+    document.addEventListener('DOMContentLoaded', () => {
+        const bottomLinks = document.querySelectorAll('.nav-bottom-link');
+        bottomLinks.forEach(link => {
+            link.addEventListener('click', e => {
+                e.preventDefault();
+                const page = link.dataset.page;
+                // Trigger the sidebar nav link for the same page
+                const sidebarLink = document.querySelector(`.nav-link[data-page="${page}"]`);
+                if (sidebarLink) sidebarLink.click();
+                // Update active state
+                bottomLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+            });
+        });
+
+        // Keep bottom nav in sync when sidebar nav is clicked
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                const page = link.dataset.page;
+                bottomLinks.forEach(l => {
+                    l.classList.toggle('active', l.dataset.page === page);
+                });
+            });
+        });
+    });
+    </script>
+</body>
+
+</html>
